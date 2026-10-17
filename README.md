@@ -91,6 +91,8 @@ docker compose run --rm bot python -m scripts.search_cli "news" --type posts --p
 docker compose run --rm bot python -m scripts.search_cli "travel" --type photos --sort v
 ```
 
+Demo data and tests intentionally contain Russian, Kazakh and Arabic text to exercise multilingual search.
+
 To run the bot in Telegram, create a test bot with [@BotFather](https://t.me/BotFather), set `BOT_TOKEN` in `.env` and run `docker compose up -d bot`.
 
 ## Project structure
@@ -143,7 +145,7 @@ pip install -r requirements-dev.txt && python -m pytest tests/unit
 
 ## Contact
 
-**Sangmu**, Python developer: Telegram bots, search, data pipelines.
+**Vladimir K.**, Python developer: Telegram bots, search, data pipelines.
 
 - Upwork: https://www.upwork.com/freelancers/~01944470ea8eacd678
 - Freelancer: https://www.freelancer.com/u/sngmu
