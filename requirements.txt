@@ -1,0 +1,14 @@
+# Telegram bot framework
+aiogram==3.28.2
+
+# ORM and database driver
+sqlalchemy[asyncio]==2.0.50
+asyncpg==0.31.0
+
+# Database migrations
+alembic==1.18.4
+
+# Configuration
+python-dotenv==1.2.2
+pydantic==2.13.4
+pydantic-settings==2.14.1

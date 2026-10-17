@@ -1,0 +1,47 @@
+# Environment files with secrets (only the example is tracked)
+.env
+.env.*
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Telegram client sessions — contain authorisation, never commit
+*.session
+*.session-journal
+*.session*
+
+# Database dumps and backups
+backups/
+*.dump
+*.dump.part
+*.sql.gz
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs and temporary files
+logs/
+*.log
+*.tmp
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

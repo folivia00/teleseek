@@ -1,0 +1,51 @@
+# Environment files — never bake them into an image
+.env
+*.env
+
+# VCS
+.git
+.gitignore
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Test artefacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation is not needed inside the image
+docs/
+*.md
+
+# Database backups must never end up in an image layer (they contain user data
+# and bloat the build context)
+backups/
+*.dump
+*.dump.part
+*.sql.gz
+
+# Logs and temporary files
+logs/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

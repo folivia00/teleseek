@@ -1,0 +1,216 @@
+# TeleSeek — Docker Compose stack.
+#
+#   docker compose up -d --build        # postgres → migrate (+ demo seed) → bot + panel
+#
+# Services:
+#   postgres  — PostgreSQL 16 (full-text search + pg_trgm)
+#   migrate   — one-shot: alembic upgrade, panel roles, optional demo seed + channel keywords
+#   bot       — the Telegram bot (skipped with a log message when BOT_TOKEN is empty)
+#   panel     — monitoring panel (FastAPI), published on 127.0.0.1 only
+#   adminer   — optional DB browser (profile "tools")
+#   tests     — unit + integration tests against this stack (profile "test")
+#
+# All published ports are bound to 127.0.0.1. On a server, reach them through an
+# SSH tunnel instead of exposing them publicly.
+
+x-db-url: &db-url postgresql+asyncpg://${POSTGRES_USER:-teleseek}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-teleseek_db}
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # ─────────────────────────────────────────
+  # PostgreSQL 16
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # Memory limit + reservation: the database gets its own cgroup, so a runaway
+    # process in another container cannot make it the first OOM victim.
+    # Tuning parameters come from the environment — one compose file for different
+    # server sizes; the defaults suit a small (2 GB) machine.
+    mem_limit: ${PG_MEM_LIMIT:-1280m}
+    mem_reservation: 256m
+    # /dev/shm: the Docker default (64 MB) is too small for parallel hash joins on a
+    # larger tuning profile; raise PG_SHM_SIZE together with work_mem.
+    shm_size: ${PG_SHM_SIZE:-64m}
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=${PG_SHARED_BUFFERS:-256MB}"
+      - "-c"
+      - "effective_cache_size=${PG_EFFECTIVE_CACHE:-896MB}"
+      - "-c"
+      - "work_mem=${PG_WORK_MEM:-12MB}"
+      - "-c"
+      - "maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-128MB}"
+      - "-c"
+      - "max_connections=${PG_MAX_CONNECTIONS:-50}"
+      # Optional preload (e.g. pg_prewarm,pg_stat_statements); empty by default.
+      - "-c"
+      - "shared_preload_libraries=${PG_PRELOAD:-}"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-teleseek_db}
+      POSTGRES_USER: ${POSTGRES_USER:-teleseek}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # localhost only — never expose the database to the internet.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-15432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-teleseek} -d ${POSTGRES_DB:-teleseek_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+
+  # ─────────────────────────────────────────
+  # One-shot migration / bootstrap job
+  # ─────────────────────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: teleseek-bot:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: *db-url
+    # 1) schema; 2) panel roles (passwords from .env); 3) demo data + topic keywords
+    #    when DEMO_SEED=1 (the seed is skipped automatically if channels already exist).
+    command:
+      - sh
+      - -c
+      - >
+        alembic upgrade head &&
+        python -m scripts.setup_roles &&
+        if [ "$${DEMO_SEED:-0}" = "1" ]; then
+        python -m scripts.seed_data && python -m scripts.build_channel_keywords;
+        fi
+    restart: "no"
+    logging: *default-logging
+
+  # ─────────────────────────────────────────
+  # Telegram bot
+  # ─────────────────────────────────────────
+  bot:
+    # Built by the "migrate" service (same image); never pulled from a registry.
+    image: teleseek-bot:latest
+    pull_policy: never
+    restart: on-failure
+    # Hard RAM limit (no swap escape) for the bot container.
+    mem_limit: 512m
+    memswap_limit: 512m
+    mem_reservation: 128m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: *db-url
+      # Result cap for posts/media: dedup and sorting run over the top-N rows.
+      MAX_RESULTS: ${MAX_RESULTS:-300}
+      # Regional result filter: comma-separated channels.section values hidden from
+      # results (data is kept). Empty = no filtering.
+      HIDDEN_SECTIONS: ${HIDDEN_SECTIONS:-}
+    # Without a token the bot cannot connect to Telegram: exit cleanly with a hint
+    # instead of crash-looping. The search CLI works without a token.
+    command:
+      - sh
+      - -c
+      - >
+        if [ -z "$${BOT_TOKEN}" ]; then
+        echo "BOT_TOKEN is empty: the Telegram bot is not started. Try the search CLI:
+        docker compose run --rm bot python -m scripts.search_cli \"recipe\"";
+        exit 0;
+        fi;
+        exec python -m bot.main
+    logging: *default-logging
+
+  # ─────────────────────────────────────────
+  # Monitoring panel (separate image, read-only role + narrow editor role)
+  # ─────────────────────────────────────────
+  panel:
+    build:
+      context: ./panel
+      dockerfile: Dockerfile
+    image: teleseek-panel:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 64m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      # Read-only role (SELECT only, default_transaction_read_only=on).
+      PANEL_DATABASE_URL: postgresql+asyncpg://teleseek_ro:${POSTGRES_RO_PASSWORD:-change-me-ro}@postgres:5432/${POSTGRES_DB:-teleseek_db}
+      # Narrow editor role: column-level grants only. Empty password → view-only panel.
+      PANEL_EDITOR_DATABASE_URL: postgresql+asyncpg://teleseek_editor:${POSTGRES_EDITOR_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-teleseek_db}
+      # Admin ids (comma-separated) are excluded from demand analytics.
+      ADMIN_IDS: ${ADMIN_IDS:-}
+      PANEL_PROJECT_NAME: ${PANEL_PROJECT_NAME:-TeleSeek}
+      # Snapshot history lives in the panel's own volume, not in the project database.
+      PANEL_HISTORY_PATH: /data/metrics_history.jsonl
+      PANEL_METRICS_TTL_SEC: ${PANEL_METRICS_TTL_SEC:-300}
+      PANEL_ANALYTICS_TTL_SEC: ${PANEL_ANALYTICS_TTL_SEC:-900}
+      PANEL_SNAPSHOT_SEC: ${PANEL_SNAPSHOT_SEC:-300}
+      PANEL_SNAPSHOT_FULL_EVERY: ${PANEL_SNAPSHOT_FULL_EVERY:-6}
+      PANEL_HISTORY_MAX: ${PANEL_HISTORY_MAX:-4032}
+      PANEL_LIMITS_STATS_TTL_SEC: ${PANEL_LIMITS_STATS_TTL_SEC:-300}
+      PANEL_DISK_PATH: ${PANEL_DISK_PATH:-/}
+      ALERT_RATE_DROP_FRAC: ${ALERT_RATE_DROP_FRAC:-0.3}
+      ALERT_RATE_MIN_AVG: ${ALERT_RATE_MIN_AVG:-500}
+      ALERT_ERROR_ABS: ${ALERT_ERROR_ABS:-200}
+    volumes:
+      - panel_data:/data
+    ports:
+      # localhost only; use an SSH tunnel on a server.
+      - "127.0.0.1:${PANEL_HOST_PORT:-18090}:8090"
+    logging: *default-logging
+
+  # ─────────────────────────────────────────
+  # Adminer — optional database browser: docker compose --profile tools up -d adminer
+  # ─────────────────────────────────────────
+  adminer:
+    image: adminer:4.8.1
+    profiles: ["tools"]
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:${ADMINER_HOST_PORT:-18080}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+  # ─────────────────────────────────────────
+  # Tests: docker compose --profile test run --rm tests
+  # ─────────────────────────────────────────
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_DEV: "1"
+    image: teleseek-bot:test
+    profiles: ["test"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: *db-url
+    command: ["python", "-m", "pytest", "-v"]
+
+volumes:
+  postgres_data:
+  panel_data:
