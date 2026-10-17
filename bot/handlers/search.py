@@ -30,6 +30,7 @@ router = Router(name="search")
 # Menu reply buttons are NOT searched as a query: their text triggers an action instead
 # of going to search. The label is recognised in ANY language (i18n.all_texts across
 # all SUPPORTED_LANGS) + legacy Russian labels, in case of a stale reply keyboard.
+# legacy Russian button labels kept for compatibility with older keyboards
 _MENU_SEARCH = i18n.all_texts("btn_search") | {"🔍 Поиск"}
 _MENU_HELP = i18n.all_texts("btn_help") | {"📖 Помощь"}
 _MENU_LANGUAGE = i18n.all_texts("btn_language")

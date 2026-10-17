@@ -46,6 +46,7 @@ _BTN_FEEDBACK = i18n.all_texts("btn_feedback")
 # Other menu buttons: pressing one while awaiting feedback cancels that mode and the
 # button performs its usual function (delegated to the search handler).
 _OTHER_MENU = (
+    # legacy Russian button labels kept for compatibility with older keyboards
     i18n.all_texts("btn_search") | {"🔍 Поиск"}
     | i18n.all_texts("btn_help") | {"📖 Помощь"}
     | i18n.all_texts("btn_language")
