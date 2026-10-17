@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{ project_name }} // MONITOR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Background — deep near-black with a warm undertone. */
+    --bg:#0a0607; --bg2:#0d090a; --surface:#140e10; --surface2:#1c1417;
+    --line:#2a1d20; --line2:#3a2a2d;
+    --txt:#e9dddd; --muted:#8c777b; --dim:#5c484c;
+    /* DECOR accent: warm scarlet. Structure only: active item, headings,
+       hairline borders, subtle glow. NOT a fill, NOT a status colour. */
+    --accent:#e24b42; --accent2:#b5352e; --glow:rgba(226,75,66,.22);
+    /* DATA colours (semantic, kept separate from the decor scarlet): */
+    --green:#46c95a;   /* done_depth / positive rate */
+    --cyan:#4ba6c9;    /* in_progress / info */
+    --amber:#e0a82e;   /* restricted / warning */
+    --red:#ff5d6c;     /* error / danger / crit — a HOT pink-red, brighter and cooler than
+                          the decor scarlet, so "red = error" reads separately from decor */
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--txt); font-family:var(--mono);
+    font-size:14px; line-height:1.45; min-height:100vh;
+    background-image:linear-gradient(var(--bg2) 1px,transparent 1px),linear-gradient(90deg,var(--bg2) 1px,transparent 1px);
+    background-size:48px 48px;
+  }
+  body::before{content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:radial-gradient(1100px 560px at 88% -6%,rgba(226,75,66,.10),transparent 58%),
+               radial-gradient(800px 480px at 2% 4%,rgba(181,53,46,.05),transparent 55%)}
+
+  .app{position:relative; z-index:1; display:flex; min-height:100vh}
+
+  /* ── Sidebar ── */
+  .sidebar{width:226px; flex:none; border-right:1px solid var(--line); padding:22px 15px 18px;
+    display:flex; flex-direction:column; gap:16px; position:sticky; top:0; height:100vh;
+    background:linear-gradient(180deg,#0e0a0b,#0a0607)}
+  .profile{display:flex; flex-direction:column; align-items:center; gap:8px; padding:4px 0 15px; border-bottom:1px solid var(--line)}
+  .logo{width:74px; height:74px; border-radius:16px; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--accent2); box-shadow:0 0 20px var(--glow); background:linear-gradient(135deg,#2a1316,#140a0b);
+    font-weight:600; font-size:26px; letter-spacing:.04em; color:var(--accent)}
+  .pname{font-weight:600; color:var(--txt); font-size:14px; letter-spacing:.05em}
+  .prole{font-size:9px; letter-spacing:.24em; text-transform:uppercase; color:var(--accent)}
+  nav{display:flex; flex-direction:column; gap:4px; flex:1}
+  .navitem{display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:8px;
+    font-size:12.5px; letter-spacing:.05em; color:var(--muted); cursor:pointer; user-select:none;
+    border:1px solid transparent; transition:.16s}
+  .navitem svg{width:16px; height:16px; flex:none; opacity:.75}
+  .navitem:hover{color:var(--txt); background:var(--surface)}
+  .navitem.active{color:var(--accent); background:linear-gradient(90deg,rgba(226,75,66,.13),transparent);
+    border-color:var(--accent2); box-shadow:inset 2px 0 0 var(--accent)}
+  .navitem.active svg{opacity:1}
+  .side-foot{font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim);
+    display:flex; align-items:center; gap:8px; padding-top:12px; border-top:1px solid var(--line)}
+  .side-foot .od{width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse2 1.7s infinite}
+
+  .main{flex:1; min-width:0}
+  .content{max-width:1180px; margin:0 auto; padding:0 26px 70px}
+
+  /* ── Header (constant) ── */
+  header{position:sticky; top:0; z-index:20; overflow:hidden; display:flex; align-items:center;
+    justify-content:space-between; gap:18px; padding:20px 26px 18px; margin-bottom:8px;
+    border-bottom:1px solid var(--line); background:linear-gradient(var(--bg) 70%,rgba(10,6,7,.4)); flex-wrap:wrap}
+  .brand{display:flex; align-items:baseline; gap:12px; position:relative; z-index:1}
+  .brand .sig{align-self:center; width:9px; height:9px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 0 0 rgba(70,201,90,.5); animation:pulse 2.4s infinite}
+  .brand .sig.amber{background:var(--amber); animation:none; box-shadow:0 0 9px rgba(224,168,46,.7)}
+  .brand .sig.red{background:var(--red); animation:pulseR 1s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(70,201,90,.45)}70%{box-shadow:0 0 0 7px rgba(70,201,90,0)}100%{box-shadow:0 0 0 0 rgba(70,201,90,0)}}
+  @keyframes pulseR{0%{box-shadow:0 0 0 0 rgba(255,93,108,.55)}70%{box-shadow:0 0 0 9px rgba(255,93,108,0)}100%{box-shadow:0 0 0 0 rgba(255,93,108,0)}}
+  .brand h1{font-weight:600; font-size:17px; letter-spacing:.08em; margin:0; text-transform:uppercase}
+  .brand h1 b{color:var(--accent); font-weight:600}
+  .brand .tag{font-size:10px; letter-spacing:.22em; color:var(--dim); text-transform:uppercase}
+  .controls{display:flex; align-items:center; gap:14px; font-size:11.5px; position:relative; z-index:1}
+  .updated{color:var(--muted); letter-spacing:.04em} .updated b{color:var(--txt); font-weight:500}
+  .auto{display:flex; align-items:center; gap:6px; color:var(--dim); letter-spacing:.14em; text-transform:uppercase; font-size:10px}
+  .auto .d{width:6px; height:6px; border-radius:50%; background:var(--accent); opacity:.4}
+  .auto.live .d{opacity:1; animation:pulse2 1.2s infinite}
+  @keyframes pulse2{50%{opacity:.25}}
+  button.refresh{font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--txt); background:var(--surface2); border:1px solid var(--line2); padding:7px 13px; border-radius:5px; cursor:pointer; transition:.15s}
+  button.refresh:hover{border-color:var(--accent); color:var(--accent)}
+  button.refresh:active{transform:translateY(1px)} button.refresh.busy{opacity:.55; pointer-events:none}
+
+  /* ── Tabs ── */
+  .tab{display:none} .tab.active{display:block; animation:rise .42s}
+  @keyframes rise{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
+  .blockh{display:flex; align-items:center; gap:12px; margin:26px 0 13px}
+  .content > .tab > .blockh:first-child{margin-top:14px}
+  .blockh .bn{font-size:11px; color:var(--accent); letter-spacing:.1em}
+  .blockh h3{font-weight:500; font-size:12px; letter-spacing:.2em; text-transform:uppercase; margin:0; color:var(--txt)}
+  .blockh .rule{flex:1; height:1px; background:linear-gradient(90deg,var(--line2),transparent)}
+  .hint{color:var(--dim); text-transform:none; letter-spacing:.02em; font-size:10px}
+
+  /* ── Alerts ── */
+  .alerts{border:1px solid var(--line2); border-radius:7px; background:var(--surface); padding:11px 15px; display:flex; flex-direction:column; gap:7px}
+  .alerts.clear{border-color:rgba(70,201,90,.35); background:rgba(70,201,90,.05)}
+  .alerts.warn{border-color:rgba(224,168,46,.4); background:rgba(224,168,46,.05)}
+  .alerts.crit{border-color:rgba(255,93,108,.5); background:rgba(255,93,108,.07)}
+  .alerts .ahead{font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted)}
+  .alerts .arow{font-size:12.5px; display:flex; align-items:center; gap:10px; letter-spacing:.02em}
+  .alerts .arow .ad{width:8px; height:8px; border-radius:50%; flex:none}
+  .arow.crit .ad{background:var(--red); box-shadow:0 0 8px rgba(255,93,108,.8); animation:pulseR 1.1s infinite} .arow.crit{color:#ff8a95}
+  .arow.warn .ad{background:var(--amber)} .arow.warn{color:#e6c474}
+  .arow.ok{color:var(--green)} .arow.ok .ad{background:var(--green)}
+  .arow .code{color:var(--dim); font-size:10.5px; margin-left:auto; letter-spacing:.08em; text-transform:uppercase}
+
+  /* ── Cards / grids ── */
+  .grid{display:grid; gap:12px}
+  .g4{grid-template-columns:repeat(4,1fr)} .g5{grid-template-columns:repeat(5,1fr)}
+  @media(max-width:900px){.g4,.g5{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:15px 16px 14px; position:relative; overflow:hidden}
+  .card::after{content:""; position:absolute; left:0; top:0; width:2px; height:100%; background:var(--line2)}
+  .card.accent::after{background:var(--accent); box-shadow:0 0 10px var(--glow)}
+  .card .k{font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:9px}
+  .card .v{font-weight:600; font-size:25px; letter-spacing:-.01em; color:var(--txt); font-variant-numeric:tabular-nums; line-height:1}
+  .card .v .u{font-size:12px; color:var(--muted); font-weight:400; margin-left:4px; letter-spacing:0}
+  .card .sub{font-size:10.5px; color:var(--dim); margin-top:7px; letter-spacing:.03em}
+  .card .v.green{color:var(--green)} .card .v.amber{color:var(--amber)} .card .v.red{color:var(--red)}
+
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:18px 18px 16px; margin-top:12px}
+  .plabel{font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:10px}
+
+  .qbar{display:flex; height:11px; border-radius:3px; overflow:hidden; background:var(--bg2); border:1px solid var(--line); margin:4px 0 14px}
+  .qbar i{display:block; height:100%}
+  .qbar i.done{background:var(--green)} .qbar i.prog{background:var(--cyan)} .qbar i.new{background:var(--line2)} .qbar i.restr{background:var(--amber)} .qbar i.err{background:var(--red)}
+  .qlegend{display:flex; flex-wrap:wrap; gap:18px}
+  .qlegend div{font-size:11px; letter-spacing:.04em; display:flex; align-items:center; gap:7px; color:var(--muted)}
+  .qlegend b{color:var(--txt); font-weight:600; font-variant-numeric:tabular-nums}
+  .qlegend .dot{width:8px; height:8px; border-radius:2px}
+  .dot.done{background:var(--green)} .dot.prog{background:var(--cyan)} .dot.new{background:var(--line2)} .dot.restr{background:var(--amber)} .dot.err{background:var(--red)}
+
+  table{width:100%; border-collapse:collapse; font-size:12px}
+  thead th{text-align:right; font-weight:500; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); padding:0 0 10px; border-bottom:1px solid var(--line2)}
+  thead th:first-child{text-align:left}
+  tbody td{text-align:right; padding:10px 0; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; color:var(--txt)}
+  tbody td:first-child{text-align:left; color:var(--muted)}
+  tbody tr:last-child td{border-bottom:none}
+
+  /* charts */
+  .charts{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
+  @media(max-width:780px){.charts{grid-template-columns:1fr}}
+  .chart{background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:14px 15px 12px}
+  .chart .ch-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px}
+  .chart .ch-t{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+  .chart .ch-v{font-size:12px; color:var(--txt); font-variant-numeric:tabular-nums} .chart .ch-v b{color:var(--green); font-weight:600}
+  .chart svg{display:block; width:100%; height:74px}
+  .chart .ch-x{display:flex; justify-content:space-between; font-size:9.5px; color:var(--dim); margin-top:5px; letter-spacing:.02em}
+  .chart .ch-none{font-size:11px; color:var(--dim); padding:24px 0; text-align:center}
+
+  .lists{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  @media(max-width:780px){.lists{grid-template-columns:1fr}}
+  .list h3{font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 4px; display:flex; align-items:center; gap:8px}
+  .list ol{list-style:none; margin:6px 0 0; padding:0; counter-reset:r}
+  .list li{counter-increment:r; display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid var(--line); font-size:12.5px}
+  .list li:last-child{border-bottom:none}
+  .list li::before{content:counter(r,decimal-leading-zero); color:var(--dim); font-size:10px; width:18px}
+  .list li .q{flex:1; color:var(--txt); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .list li .c{color:var(--muted); font-variant-numeric:tabular-nums}
+  .list.empty li .q{color:var(--amber)} .list .none{font-size:11.5px; color:var(--dim); padding:8px 0}
+  /* Chronological query feed */
+  .feed{list-style:none; margin:0; padding:0}
+  .feed li{display:flex; align-items:baseline; gap:10px; padding:7px 0; border-bottom:1px solid var(--line); font-size:12.5px}
+  .feed li:last-child{border-bottom:none}
+  .feed .ft{color:var(--dim); font-size:10.5px; font-variant-numeric:tabular-nums; width:42px; flex-shrink:0; text-align:right}
+  .feed .fq{flex:1; color:var(--txt); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .feed .fb{font-size:9.5px; letter-spacing:.04em; padding:1px 6px; border-radius:4px; flex-shrink:0; text-transform:uppercase}
+  .feed .b18{background:rgba(226,75,66,.16); color:var(--scarlet,#ff5d6c); border:1px solid rgba(226,75,66,.4)}
+  .feed .bsafe{background:var(--bg2); color:var(--dim); border:1px solid var(--line)}
+  .feed .bempty{color:var(--amber)}
+  .feed .none{font-size:11.5px; color:var(--dim); padding:8px 0}
+  .split{display:flex; gap:18px; align-items:baseline; font-size:12px; color:var(--muted); margin:2px 0 0}
+  .split b{font-variant-numeric:tabular-nums} .split .s18 b{color:var(--scarlet,#ff5d6c)} .split .ssafe b{color:var(--txt)}
+
+  /* analytics */
+  .mini{display:inline-block; height:6px; width:64px; background:var(--bg2); border:1px solid var(--line); border-radius:2px; vertical-align:middle; margin-right:8px; overflow:hidden}
+  .mini i{display:block; height:100%; background:var(--green)} .mini i.lo{background:var(--amber)}
+  tr.lag td{color:var(--amber)} tr.lag td:first-child{color:var(--amber)}
+  .msplit{display:flex; height:15px; border-radius:3px; overflow:hidden; border:1px solid var(--line); background:var(--bg2); margin:2px 0 12px}
+  .msplit i{height:100%}
+  .mtext{background:var(--line2)} .mphoto{background:var(--cyan)} .mvideo{background:var(--green)} .maudio{background:var(--amber)} .mdoc{background:#9a6cd6}
+  .fc{font-size:12px; color:var(--txt); line-height:1.75} .fc .big{font-size:23px; font-weight:600; color:var(--accent); font-variant-numeric:tabular-nums} .fc .muted{color:var(--muted)}
+
+  .note{font-size:10.5px; color:var(--dim); letter-spacing:.03em; margin-top:12px}
+  .err-banner{display:none; font-size:12px; color:var(--red); background:rgba(255,93,108,.08); border:1px solid rgba(255,93,108,.3); border-radius:6px; padding:10px 14px; margin:14px 26px 0}
+  .skel{color:var(--dim)!important}
+  footer{margin-top:40px; font-size:10.5px; color:var(--dim); letter-spacing:.05em; border-top:1px solid var(--line); padding-top:14px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px}
+
+  @media(max-width:820px){
+    .app{flex-direction:column}
+    .sidebar{width:auto; height:auto; position:static; flex-direction:row; align-items:center; gap:12px; padding:12px 14px; overflow-x:auto}
+    .profile{flex-direction:row; gap:9px; padding:0 12px 0 0; border-bottom:none; border-right:1px solid var(--line)}
+    .logo{width:38px; height:38px; border-radius:9px; font-size:15px} .prole{display:none}
+    nav{flex-direction:row; gap:4px} .navitem{padding:8px 10px; white-space:nowrap} .navitem.active{box-shadow:inset 0 -2px 0 var(--accent)}
+    .side-foot{display:none}
+  }
+  /* ── Editor ── */
+  .ed-controls{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px}
+  .ed-in{background:var(--surface); border:1px solid var(--line); color:var(--txt); font-family:var(--mono);
+    font-size:13px; padding:8px 11px; border-radius:6px; outline:none}
+  .ed-in:focus{border-color:var(--accent)}
+  #ed-q{flex:1; min-width:200px}
+  .ed-chk{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); user-select:none}
+  .ed-btn{background:var(--accent); color:#fff; border:none; font-family:var(--mono); font-size:12px;
+    font-weight:600; padding:8px 15px; border-radius:6px; cursor:pointer; white-space:nowrap}
+  .ed-btn:hover{filter:brightness(1.12)} .ed-btn.ghost{background:var(--surface2); color:var(--txt); border:1px solid var(--line)}
+  .ed-btn:disabled{opacity:.4; cursor:default}
+  .ed-status{font-size:12px; color:var(--muted)}
+  .ed-list{display:flex; flex-direction:column; gap:7px; min-height:40px}
+  .ed-none{color:var(--muted); font-size:13px; padding:14px 4px}
+  .ed-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line);
+    border-radius:7px; padding:10px 13px; flex-wrap:wrap}
+  .ed-row.adult{border-left:3px solid var(--error)}
+  .ed-row .nm{flex:1; min-width:180px; overflow:hidden}
+  .ed-row .nm b{font-size:13px; color:var(--txt)} .ed-row .nm .un{font-size:11px; color:var(--muted); margin-left:6px}
+  .ed-row .nm .me{font-size:11px; color:var(--muted); display:block; margin-top:2px}
+  .ed-tme{color:var(--accent); text-decoration:none; font-size:11px; border-bottom:1px dotted rgba(226,75,66,.5)}
+  .ed-tme:hover{filter:brightness(1.2); border-bottom-style:solid}
+  .ed-pc{font-size:10px; padding:1px 6px; border-radius:3px; border:1px solid var(--line)}
+  .ed-pc.has{color:var(--green); border-color:rgba(64,200,140,.35)}
+  .ed-pc.no{color:var(--muted)}
+  .ed-pc.closed{color:var(--error); border-color:rgba(255,93,108,.35)}
+  .ed-row .fld{display:flex; align-items:center; gap:6px}
+  .ed-tag{font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--line); background:var(--bg2); color:var(--muted)}
+  .ed-tag.on{background:rgba(255,93,108,.16); color:var(--error); border-color:rgba(255,93,108,.4)}
+  .ed-tag.off{background:rgba(64,200,140,.14); color:var(--green); border-color:rgba(64,200,140,.4)}
+  .ed-sel{background:var(--surface2); border:1px solid var(--line); color:var(--txt); font-family:var(--mono);
+    font-size:11px; padding:5px 7px; border-radius:5px; max-width:150px}
+  .ed-act{background:var(--surface2); border:1px solid var(--line); color:var(--txt); font-family:var(--mono);
+    font-size:11px; padding:5px 10px; border-radius:5px; cursor:pointer}
+  .ed-act:hover{border-color:var(--accent); color:var(--txt)}
+  .ed-pager{display:flex; align-items:center; gap:14px; justify-content:center; margin:14px 0 6px}
+  .ed-pageinfo{font-size:12px; color:var(--muted)}
+  .ed-log{display:flex; flex-direction:column; gap:4px; font-size:12px}
+  .ed-log .lg{display:flex; gap:10px; padding:5px 10px; background:var(--surface); border:1px solid var(--line); border-radius:5px; color:var(--muted)}
+  .ed-log .lg .t{color:var(--txt)} .ed-log .lg .ch{color:var(--accent)}
+
+  /* ── Feedback: feed of user messages, reuses the ed-row style ── */
+  .fb-row{align-items:flex-start}
+  .fb-row.fav{border-left:3px solid var(--amber)}
+  .fb-meta{font-size:11px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .fb-meta .uid{font-family:var(--mono); color:var(--cyan)}
+  .fb-txt{font-size:13px; color:var(--txt); white-space:pre-wrap; word-break:break-word; margin-top:5px; line-height:1.45}
+  .fb-star{background:none; border:1px solid var(--line); color:var(--muted); font-size:14px;
+    padding:4px 9px; border-radius:5px; cursor:pointer; line-height:1}
+  .fb-star.on{color:var(--amber); border-color:rgba(255,184,76,.5); background:rgba(255,184,76,.10)}
+  .fb-star:hover{border-color:var(--amber)}
+  .fb-del{background:none; border:1px solid var(--line); color:var(--muted); font-size:11px;
+    font-family:var(--mono); padding:5px 9px; border-radius:5px; cursor:pointer}
+  .fb-del:hover{border-color:var(--error); color:var(--error)}
+  .fb-star:disabled,.fb-del:disabled{opacity:.4; cursor:default}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ════════ SIDEBAR ════════ -->
+  <aside class="sidebar">
+    <div class="profile">
+      <div class="logo">TS</div>
+      <div class="pname">admin</div>
+      <div class="prole">operator</div>
+    </div>
+    <nav>
+      <div class="navitem active" data-tab="overview"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="1.5" y="1.5" width="5.4" height="5.4" rx="1"/><rect x="9.1" y="1.5" width="5.4" height="5.4" rx="1"/><rect x="1.5" y="9.1" width="5.4" height="5.4" rx="1"/><rect x="9.1" y="9.1" width="5.4" height="5.4" rx="1"/></svg>Overview</div>
+      <div class="navitem" data-tab="content"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="8" width="2.6" height="6" rx=".5"/><rect x="6.7" y="3.5" width="2.6" height="10.5" rx=".5"/><rect x="11.4" y="6" width="2.6" height="8" rx=".5"/></svg>Content</div>
+      <div class="navitem" data-tab="demand"><svg viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.4" stroke="currentColor" stroke-width="1.6"/><line x1="10.4" y1="10.4" x2="14.4" y2="14.4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>Demand</div>
+      <div class="navitem" data-tab="editor"><svg viewBox="0 0 16 16" fill="none"><path d="M2 11.5 10.5 3l2.5 2.5L4.5 14H2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="9" y1="4.5" x2="11.5" y2="7" stroke="currentColor" stroke-width="1.5"/></svg>Editor</div>
+      <div class="navitem" data-tab="feedback"><svg viewBox="0 0 16 16" fill="none"><path d="M2 3h12v8H6l-3 3v-3H2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="5" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="8.5" x2="9" y2="8.5" stroke="currentColor" stroke-width="1.3"/></svg>Feedback</div>
+      <div class="navitem" data-tab="limits"><svg viewBox="0 0 16 16" fill="none"><rect x="2.2" y="6.5" width="11.6" height="7.8" rx="1.4" stroke="currentColor" stroke-width="1.5"/><path d="M5 6.5V4.6a3 3 0 0 1 6 0v1.9" stroke="currentColor" stroke-width="1.5"/></svg>Limits</div>
+    </nav>
+    <div class="side-foot"><span class="od"></span>Online 24/7</div>
+  </aside>
+
+  <!-- ════════ MAIN ════════ -->
+  <main class="main">
+    <header>
+      <div class="brand">
+        <span class="sig" id="sig"></span>
+        <h1>{{ project_name }} <b>//</b> MONITOR</h1>
+        <span class="tag" id="tabtag">overview</span>
+      </div>
+      <div class="controls">
+        <span class="updated">updated <b id="updated">—</b></span>
+        <span class="auto" id="autoBadge"><span class="d"></span>auto&nbsp;30s</span>
+        <button class="refresh" id="refreshBtn">↻ Refresh</button>
+      </div>
+    </header>
+
+    <div class="err-banner" id="errBanner"></div>
+
+    <div class="content">
+
+      <!-- ═══ TAB: OVERVIEW ═══ -->
+      <div class="tab active" id="tab-overview">
+        <div class="alerts clear" id="alerts">
+          <div class="ahead">early warning</div>
+          <div class="arow ok"><span class="ad"></span>loading…</div>
+        </div>
+
+        <div class="blockh"><span class="bn">▸</span><h3>Database · key numbers</h3><span class="rule"></span></div>
+        <div class="grid g4">
+          <div class="card accent"><div class="k">Database size</div><div class="v skel" id="m-dbsize">—</div><div class="sub" id="m-dbsize-b"></div></div>
+          <div class="card"><div class="k">Posts</div><div class="v skel" id="m-posts">—</div></div>
+          <div class="card"><div class="k">Channels</div><div class="v skel" id="m-channels">—</div></div>
+          <div class="card"><div class="k">Media</div><div class="v skel" id="m-media">—</div></div>
+        </div>
+
+        <div class="blockh"><span class="bn">▸</span><h3>Ingestion</h3><span class="rule"></span></div>
+        <div class="grid g4">
+          <div class="card accent"><div class="k">Ingest · posts / hour</div><div class="v green skel" id="m-rate">—</div></div>
+          <div class="card"><div class="k">Disk</div><div class="v skel" id="m-disk">—</div><div class="sub" id="m-disk-b"></div></div>
+          <div class="card"><div class="k">Newest post</div><div class="v skel" id="m-fresh">—</div><div class="sub">ago · freshness signal</div></div>
+          <div class="card"><div class="k">Queue coverage</div><div class="v skel" id="m-cov">—</div><div class="sub">channels ingested to full depth</div></div>
+        </div>
+        <div class="panel">
+          <div class="plabel">Ingestion queue · coverage <b id="m-coverage" style="color:var(--green)">—</b></div>
+          <div class="qbar" id="m-qbar"></div>
+          <div class="qlegend">
+            <div><span class="dot done"></span>done_depth <b id="q-done">—</b></div>
+            <div><span class="dot prog"></span>in_progress <b id="q-prog">—</b></div>
+            <div><span class="dot new"></span>new <b id="q-new">—</b></div>
+            <div><span class="dot restr"></span>restricted_skip <b id="q-restr">—</b></div>
+            <div><span class="dot err"></span>error <b id="q-err">—</b></div>
+            <div style="margin-left:auto;color:var(--dim)">total <b id="q-total" style="color:var(--muted)">—</b></div>
+          </div>
+        </div>
+
+        <div class="blockh"><span class="bn">▸</span><h3>Rate · growth · coverage</h3><span class="rule"></span></div>
+        <div class="charts">
+          <div class="chart"><div class="ch-head"><span class="ch-t">Rate · posts/hour (48h)</span><span class="ch-v" id="cv-rate"></span></div><div id="ch-rate"></div><div class="ch-x" id="cx-rate"></div></div>
+          <div class="chart"><div class="ch-head"><span class="ch-t">Growth · posts/day (14d)</span><span class="ch-v" id="cv-grow"></span></div><div id="ch-grow"></div><div class="ch-x" id="cx-grow"></div></div>
+        </div>
+        <div class="charts">
+          <div class="chart"><div class="ch-head"><span class="ch-t">Coverage over time (snapshots)</span><span class="ch-v" id="cv-cov"></span></div><div id="ch-cov"></div><div class="ch-x" id="cx-cov"></div></div>
+          <div class="chart" style="display:flex;flex-direction:column;justify-content:center"><div class="ch-head"><span class="ch-t">Legend</span></div><div class="ch-none">Data colours: <b style="color:var(--green)">done</b> · <b style="color:var(--cyan)">in_progress</b> · <b style="color:var(--amber)">restricted</b> · <b style="color:var(--red)">error</b></div></div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: CONTENT ═══ -->
+      <div class="tab" id="tab-content">
+        <div class="blockh"><span class="bn">▸</span><h3>Media types across the database</h3><span class="rule"></span></div>
+        <div class="panel">
+          <div class="msplit" id="an-media"></div>
+          <div class="qlegend" id="an-media-leg"></div>
+        </div>
+        <div class="blockh"><span class="bn">▸</span><h3>Content by category <span class="hint">— amber = lagging</span></h3><span class="rule"></span></div>
+        <div class="panel">
+          <table>
+            <thead><tr><th>Category</th><th>Channels</th><th>Posts</th><th>Coverage</th><th>restricted</th><th>Pending</th></tr></thead>
+            <tbody id="an-cattbody"><tr><td colspan="6" class="skel" style="text-align:center;padding:16px">loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="blockh"><span class="bn">▸</span><h3>Coverage / progress / forecast</h3><span class="rule"></span></div>
+        <div class="charts">
+          <div class="chart"><div class="ch-head"><span class="ch-t">done_depth over time (snapshots)</span><span class="ch-v" id="an-qhv"></span></div><div id="an-qhch"></div><div class="ch-x" id="an-qhx"></div></div>
+          <div class="chart" style="display:flex;flex-direction:column;justify-content:center"><div class="ch-head"><span class="ch-t">Ingestion forecast (rough)</span></div><div class="fc" id="an-forecast">—</div></div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: DEMAND ═══ -->
+      <div class="tab" id="tab-demand">
+        <div class="blockh"><span class="bn">▸</span><h3>Users · requests · searches</h3><span class="rule"></span></div>
+        <div class="grid g5">
+          <div class="card"><div class="k">Users</div><div class="v skel" id="m-users">—</div></div>
+          <div class="card accent"><div class="k">Active 7 days</div><div class="v green skel" id="m-active">—</div></div>
+          <div class="card"><div class="k">Requests</div><div class="v skel" id="m-req">—</div></div>
+          <div class="card"><div class="k">Searches</div><div class="v skel" id="m-search">—</div></div>
+          <div class="card"><div class="k">Zero-result</div><div class="v amber skel" id="m-empty">—</div><div class="sub" id="m-empty-pct"></div></div>
+        </div>
+        <div class="blockh"><span class="bn">▸</span><h3>Top queries · top zero-result <span class="hint">— content gaps</span></h3><span class="rule"></span></div>
+        <div class="panel">
+          <div class="lists">
+            <div class="list"><h3>Top queries</h3><ol id="m-top"><li class="none">—</li></ol></div>
+            <div class="list empty"><h3>Top zero-result <span class="hint">— what is missing</span></h3><ol id="m-topempty"><li class="none">—</li></ol></div>
+          </div>
+        </div>
+        <div class="blockh"><span class="bn">▸</span><h3>Query feed <span class="hint">— last 20 · chronological · users only (admin excluded)</span></h3><span class="rule"></span></div>
+        <div class="panel">
+          <div class="split">
+            <span class="s18">content filter off (18+): <b id="m-adult">—</b> <span id="m-adult-pct" class="hint"></span></span>
+            <span class="ssafe">safe search: <b id="m-safe">—</b></span>
+          </div>
+          <ol class="feed" id="m-feed" style="margin-top:10px"><li class="none">—</li></ol>
+        </div>
+        <div class="blockh"><span class="bn">▸</span><h3>Searches / day · zero-result share · audience</h3><span class="rule"></span></div>
+        <div class="charts">
+          <div class="chart"><div class="ch-head"><span class="ch-t">Searches/day (14d)</span><span class="ch-v" id="cv-search"></span></div><div id="ch-search"></div><div class="ch-x" id="cx-search"></div></div>
+          <div class="chart"><div class="ch-head"><span class="ch-t">Zero-result share / day (30d)</span><span class="ch-v" id="an-emptyv"></span></div><div id="an-emptych"></div><div class="ch-x" id="an-emptyx"></div></div>
+        </div>
+        <div class="charts">
+          <div class="chart"><div class="ch-head"><span class="ch-t">New users/day (14d)</span><span class="ch-v" id="cv-users"></span></div><div id="ch-users"></div><div class="ch-x" id="cx-users"></div></div>
+          <div class="panel" style="margin-top:0">
+            <div class="lists">
+              <div class="list"><h3>Queries in detail <span class="hint">∅ = never had results</span></h3><ol id="an-top"><li class="none">—</li></ol></div>
+              <div class="list empty"><h3>Zero-result in detail</h3><ol id="an-topempty"><li class="none">—</li></ol></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab" id="tab-editor">
+        <div class="blockh"><span class="bn">▸</span><h3>Channel labelling <span class="hint">— content filter flag and category · narrow DB role · one edit at a time</span></h3><span class="rule"></span></div>
+        <div class="ed-controls">
+          <input id="ed-q" class="ed-in" type="text" placeholder="search by @username or title…" autocomplete="off">
+          <select id="ed-cat" class="ed-in"><option value="">all categories</option></select>
+          <select id="ed-posts" class="ed-in" title="whether the channel has ingested posts"><option value="yes">with posts</option><option value="no">without posts</option><option value="">all</option></select>
+          <label class="ed-chk"><input id="ed-adult" type="checkbox" checked> 18+ flagged only</label>
+          <button id="ed-find" class="ed-btn">Find</button>
+          <span id="ed-status" class="ed-status"></span>
+        </div>
+        <div id="ed-list" class="ed-list"><div class="ed-none">— set a filter and press "Find"</div></div>
+        <div class="ed-pager">
+          <button id="ed-prev" class="ed-btn ghost">‹ prev</button>
+          <span id="ed-page" class="ed-pageinfo">—</span>
+          <button id="ed-next" class="ed-btn ghost">next ›</button>
+        </div>
+        <div class="blockh"><span class="bn">▸</span><h3>Edit log <span class="hint">— old → new (for rollback)</span></h3><span class="rule"></span></div>
+        <div id="ed-log" class="ed-log"><div class="ed-none">—</div></div>
+      </div>
+
+      <!-- ═══ TAB: FEEDBACK ═══ -->
+      <div class="tab" id="tab-feedback">
+        <div class="blockh"><span class="bn">▸</span><h3>Feedback <span class="hint">— messages sent from the bot · newest first · the author id is visible only here (internal moderation)</span></h3><span class="rule"></span></div>
+        <div class="ed-controls">
+          <label class="ed-chk"><input id="fb-fav" type="checkbox"> favourites only ★</label>
+          <button id="fb-reload" class="ed-btn">↻ Refresh</button>
+          <span id="fb-status" class="ed-status"></span>
+        </div>
+        <div id="fb-list" class="ed-list"><div class="ed-none">loading…</div></div>
+        <div class="ed-pager">
+          <button id="fb-prev" class="ed-btn ghost">‹ prev</button>
+          <span id="fb-page" class="ed-pageinfo">—</span>
+          <button id="fb-next" class="ed-btn ghost">next ›</button>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: LIMITS & ACCESS ═══ -->
+      <div class="tab" id="tab-limits">
+        <div class="blockh"><span class="bn">▸</span><h3>Limits <span class="hint">— applied by the bot without a restart (60 s cache) · changes are logged</span></h3><span class="rule"></span></div>
+        <div class="ed-controls">
+          <label class="ed-chk"><input id="lim-enabled" type="checkbox"> <b>limits enabled</b></label>
+          <span class="hint" id="lim-enabled-hint">— global switch</span>
+        </div>
+        <div class="ed-controls">
+          <label class="ed-chk">searches per day (free):
+            <input id="lim-daily" class="ed-in" type="number" min="1" max="1000" style="width:90px">
+          </label>
+          <label class="ed-chk">pages per result set (free):
+            <input id="lim-pages" class="ed-in" type="number" min="1" max="100" style="width:90px">
+          </label>
+          <button id="lim-save" class="ed-btn">Save</button>
+          <span id="lim-status" class="ed-status"></span>
+        </div>
+
+        <div class="blockh"><span class="bn">▸</span><h3>Manual premium <span class="hint">— before payments exist: testing, early customers, compensation</span></h3><span class="rule"></span></div>
+        <div class="grid g4">
+          <div class="card accent"><div class="k">Active subscriptions</div><div class="v green skel" id="lim-prem-active">—</div><div class="sub">status=active and not expired</div></div>
+          <div class="card"><div class="k">Expired</div><div class="v skel" id="lim-prem-expired">—</div><div class="sub">term has passed</div></div>
+          <div class="card"><div class="k">Total records</div><div class="v skel" id="lim-prem-total">—</div><div class="sub">history is never deleted</div></div>
+          <div class="card"><div class="k">Hit the limit</div><div class="v skel" id="lim-hits">—</div><div class="sub">fills up once limits are enabled</div></div>
+        </div>
+        <div class="ed-controls">
+          <input id="lim-uid" class="ed-in" type="number" placeholder="user Telegram id" style="width:200px">
+          <button id="lim-find" class="ed-btn">Find</button>
+          <label class="ed-chk">term, days: <input id="lim-days" class="ed-in" type="number" min="1" max="1825" value="30" style="width:80px"></label>
+          <label class="ed-chk"><input id="lim-forever" type="checkbox"> no expiry</label>
+          <button id="lim-grant" class="ed-btn">Grant premium</button>
+          <button id="lim-revoke" class="ed-btn ghost">Revoke</button>
+        </div>
+        <div id="lim-user" class="ed-list"><div class="ed-none">— enter an id and press "Find"</div></div>
+
+        <div class="blockh"><span class="bn">▸</span><h3>Result usage <span class="hint">— paging depth and filters (interaction telemetry)</span></h3><span class="rule"></span></div>
+        <div id="lim-stats" class="ed-list"><div class="ed-none">loading…</div></div>
+
+        <div class="blockh"><span class="bn">▸</span><h3>Action log <span class="hint">— who, what, old → new</span></h3><span class="rule"></span></div>
+        <div id="lim-log" class="ed-log"><div class="ed-none">—</div></div>
+      </div>
+
+    </div>
+
+    <footer>
+      <span>{{ project_name }} · monitoring panel</span>
+      <span>read-only · localhost-only</span>
+    </footer>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => (n==null?'—':Number(n).toLocaleString('en-US'));
+const unskel = el => el && el.classList.remove('skel');
+
+function ago(iso){ if(!iso) return '—'; const s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
+  if(s<90) return Math.round(s)+'s'; if(s<5400) return Math.round(s/60)+'m'; if(s<172800) return Math.round(s/3600)+'h'; return Math.round(s/86400)+'d'; }
+function bytes(b){ if(b==null) return '—'; const u=['B','KB','MB','GB','TB']; let i=0; b=Number(b); while(b>=1024&&i<u.length-1){b/=1024;i++;} return b.toFixed(b<10&&i>0?1:0)+' '+u[i]; }
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function svgBars(data, key, color){ if(!data||!data.length) return '';
+  const vals=data.map(d=>Number(d[key])||0); const max=Math.max(1,...vals); const n=data.length; const bw=100/n; let r='';
+  for(let i=0;i<n;i++){ const v=vals[i]; const h=Math.max(v>0?2:0, v/max*34); const x=i*bw+bw*0.12; const w=bw*0.76;
+    r+=`<rect x="${x.toFixed(2)}" y="${(36-h).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${color}" rx="0.4"><title>${escapeHtml(data[i].t)} : ${fmt(v)}</title></rect>`; }
+  return `<svg viewBox="0 0 100 36" preserveAspectRatio="none">${r}</svg>`; }
+function svgBars2(data,key,key2,c1,c2){ if(!data||!data.length) return '';
+  const vals=data.map(d=>Number(d[key])||0); const max=Math.max(1,...vals); const n=data.length; const bw=100/n; let r='';
+  for(let i=0;i<n;i++){ const v=vals[i], e=Number(data[i][key2])||0; const x=i*bw+bw*0.12; const w=bw*0.76; const h=Math.max(v>0?2:0,v/max*34), he=Math.max(e>0?1:0,e/max*34);
+    r+=`<rect x="${x.toFixed(2)}" y="${(36-h).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${c1}" rx="0.4"><title>${escapeHtml(data[i].t)} : ${fmt(v)} (zero-result ${fmt(e)})</title></rect>`;
+    if(e>0) r+=`<rect x="${x.toFixed(2)}" y="${(36-he).toFixed(2)}" width="${w.toFixed(2)}" height="${he.toFixed(2)}" fill="${c2}" rx="0.4"/>`; }
+  return `<svg viewBox="0 0 100 36" preserveAspectRatio="none">${r}</svg>`; }
+function svgLine(data, key, color){ if(!data||data.length<2) return '';
+  const vals=data.map(d=>Number(d[key])||0); const max=Math.max(...vals), min=Math.min(...vals); const rng=(max-min)||1; const n=data.length;
+  const pts=data.map((d,i)=>{ const x=i/(n-1)*100; const y=34-((Number(d[key])||0)-min)/rng*32+1; return [x,y]; });
+  const line=pts.map(p=>p[0].toFixed(2)+','+p[1].toFixed(2)).join(' '); const area=`0,36 ${line} 100,36`;
+  return `<svg viewBox="0 0 100 36" preserveAspectRatio="none"><polygon points="${area}" fill="${color}" opacity="0.10"/><polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.3" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`; }
+function xlabels(elId,data){ const el=$(elId); if(!el)return; if(!data||!data.length){el.innerHTML='';return;}
+  const short=s=>String(s).replace('T',' ').slice(5,16); el.innerHTML=`<span>${escapeHtml(short(data[0].t||''))}</span><span>${escapeHtml(short(data[data.length-1].t||''))}</span>`; }
+function drawChart(svgId, vId, xId, data, key, color, valLabel){ const host=$(svgId);
+  if(!data||!data.length){ host.innerHTML='<div class="ch-none">no data for the period</div>'; $(vId).textContent=''; $(xId).innerHTML=''; return; }
+  host.innerHTML=svgBars(data,key,color); xlabels(xId,data); const last=data[data.length-1]; $(vId).innerHTML=valLabel?valLabel(last,data):''; }
+
+function renderAlerts(alerts){ const box=$('alerts'); const sig=$('sig'); box.className='alerts'; sig.className='sig';
+  const head='<div class="ahead">early warning</div>';
+  if(!alerts||!alerts.length){ box.classList.add('clear'); box.innerHTML=head+'<div class="arow ok"><span class="ad"></span>All quiet — no anomalies</div>'; return; }
+  const hasCrit=alerts.some(a=>a.level==='crit'); box.classList.add(hasCrit?'crit':'warn'); sig.classList.add(hasCrit?'red':'amber');
+  let rows=''; for(const a of alerts){ rows+=`<div class="arow ${a.level}"><span class="ad"></span><span>${escapeHtml(a.msg)}</span><span class="code">${escapeHtml(a.code||'')}</span></div>`; }
+  box.innerHTML=head+rows; }
+
+function renderQueue(q,total,cov){ $('q-done').textContent=fmt(q.done_depth); $('q-prog').textContent=fmt(q.in_progress); $('q-new').textContent=fmt(q.new); $('q-restr').textContent=fmt(q.restricted_skip); $('q-err').textContent=fmt(q.error); $('q-total').textContent=fmt(total); $('m-coverage').textContent=cov+'%';
+  const bar=$('m-qbar'); bar.innerHTML=''; const seg=[['done',q.done_depth],['prog',q.in_progress],['restr',q.restricted_skip],['err',q.error],['new',q.new]]; const t=total||1;
+  for(const [c,v] of seg){ if(v>0){ const i=document.createElement('i'); i.className=c; i.style.width=(v/t*100)+'%'; i.title=c+': '+v; bar.appendChild(i);} } }
+
+function renderList(elId,items){ const ol=$(elId); if(!ol)return; ol.innerHTML=''; if(!items||!items.length){ ol.innerHTML='<li class="none">no data yet</li>'; return; } for(const it of items){ const li=document.createElement('li'); li.innerHTML=`<span class="q">${escapeHtml(it.query)}</span><span class="c">${fmt(it.count)}</span>`; ol.appendChild(li); } }
+// Chronological query feed: time · query · content-filter badge · "zero results" mark.
+function renderFeed(elId,items){ const ol=$(elId); if(!ol)return; ol.innerHTML='';
+  if(!items||!items.length){ ol.innerHTML='<li class="none">no user queries yet</li>'; return; }
+  for(const it of items){ const li=document.createElement('li');
+    const badge = it.adult ? '<span class="fb b18">18+</span>' : '<span class="fb bsafe">safe</span>';
+    const empty = it.has_results ? '' : '<span class="fb bempty" title="nothing found">∅</span>';
+    li.innerHTML=`<span class="ft">${ago(it.at)}</span><span class="fq">${escapeHtml(it.query)}</span>${empty}${badge}`;
+    ol.appendChild(li); } }
+
+async function load(){ const btn=$('refreshBtn'); btn.classList.add('busy'); btn.textContent='↻ …';
+  try{ const r=await fetch('/api/metrics',{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'metrics error');
+    const {base,ingest,users,charts}=j.data; $('errBanner').style.display='none';
+    /* Show the AGE of the data — metrics come from a TTL cache and refresh in the
+       background. Without this label five-minute-old numbers would read as real time. */
+    (function(){ const c=j.data.cache; const b=$('autoBadge'); if(!c||!b) return;
+      const a=c.age_sec|0;
+      /* Readable age at any scale (after downtime the cache can be a day old) plus an
+         explicit "stale" warning above 3×TTL, so a stuck background refresh is visible
+         instead of looking like fresh numbers. */
+      const t=a<60?a+'s':a<5400?Math.round(a/60)+'min':a<172800?Math.round(a/3600)+'h':Math.round(a/86400)+'d';
+      const stale=c.ttl_sec&&a>3*c.ttl_sec;
+      b.innerHTML='<span class="d"></span>'+(a<10?'data: now':(stale?'⚠ data is stale: ':'data: ')+t+' ago');
+      b.style.color=stale?'var(--amber)':''; })();
+    renderAlerts(j.data.alerts);
+    $('m-dbsize').innerHTML=bytes(base.db_size_bytes); $('m-dbsize-b').textContent='pg_database_size';
+    $('m-posts').textContent=fmt(base.posts); $('m-channels').textContent=fmt(base.channels); $('m-media').textContent=fmt(base.media);
+    ['m-dbsize','m-posts','m-channels','m-media'].forEach(i=>unskel($(i))); renderQueue(base.queue,base.queue_total,base.coverage_pct);
+    drawChart('ch-grow','cv-grow','cx-grow',charts.posts_daily,'c','var(--green)',(l)=>'+'+fmt(l.c)+'/day');
+    (function(){const h=$('ch-cov'); const hist=(j.data.history||[]).filter(x=>x.coverage_pct!=null); if(hist.length<2){ h.innerHTML='<div class="ch-none">accumulating… (snapshots every 5 min)</div>'; $('cv-cov').textContent=base.coverage_pct+'%'; $('cx-cov').innerHTML=''; return; } const data=hist.map(x=>({t:x.ts,c:x.coverage_pct})); h.innerHTML=svgLine(data,'c','var(--cyan)'); xlabels('cx-cov',data); $('cv-cov').innerHTML='<b>'+base.coverage_pct+'%</b>'; })();
+    $('m-rate').innerHTML='+'+fmt(ingest.posts_1h_total); $('m-cov').innerHTML=base.coverage_pct+'<span class="u">%</span>';
+    const d=ingest.disk; const dv=$('m-disk'); dv.innerHTML=d.pct+'<span class="u">%</span>'; dv.className='v '+(d.pct>=90?'red':d.pct>=75?'amber':''); $('m-disk-b').textContent=bytes(d.used_bytes)+' / '+bytes(d.total_bytes); $('m-fresh').innerHTML=ago(ingest.latest_post_at);
+    ['m-rate','m-disk','m-fresh','m-cov'].forEach(i=>unskel($(i)));
+    drawChart('ch-rate','cv-rate','cx-rate',charts.posts_hourly,'c','var(--green)',(l)=>'+'+fmt(l.c)+'/h (current)');
+    drawChart('ch-users','cv-users','cx-users',charts.users_daily,'c','var(--cyan)',()=> '');
+    $('m-users').textContent=fmt(users.total_users); $('m-active').textContent=fmt(users.active_7d); $('m-req').textContent=fmt(users.total_requests); $('m-search').textContent=fmt(users.total_searches); $('m-empty').textContent=fmt(users.empty_searches);
+    const pct=users.total_searches?Math.round(users.empty_searches/users.total_searches*100):0; $('m-empty-pct').textContent=users.total_searches?pct+'% of searches':'';
+    ['m-users','m-active','m-req','m-search','m-empty'].forEach(i=>unskel($(i))); renderList('m-top',users.top); renderList('m-topempty',users.top_empty);
+    // Content-filter split: 18+ mode vs safe search (legacy NULL counts as safe).
+    $('m-adult').textContent=fmt(users.searches_adult); $('m-safe').textContent=fmt(users.searches_safe);
+    const ap=users.total_searches?Math.round(users.searches_adult/users.total_searches*100):0; $('m-adult-pct').textContent=users.total_searches?'· '+ap+'%':''; unskel($('m-adult')); unskel($('m-safe'));
+    renderFeed('m-feed',users.recent);
+    (function(){const h=$('ch-search'); const sd=charts.searches_daily; if(!sd||!sd.length){ h.innerHTML='<div class="ch-none">no data for the period</div>'; $('cv-search').textContent=''; $('cx-search').innerHTML=''; return; } h.innerHTML=svgBars2(sd,'c','e','var(--cyan)','var(--amber)'); xlabels('cx-search',sd); const last=sd[sd.length-1]; $('cv-search').innerHTML=fmt(last.c)+'/day · <b style="color:var(--amber)">'+fmt(last.e)+' zero-result</b>'; })();
+    $('updated').textContent=new Date().toLocaleTimeString('en-GB');
+  }catch(e){ const b=$('errBanner'); b.style.display='block';
+    /* A network failure of fetch (TypeError) is not a panel error — the page has lost
+       its connection to the server (usually a dropped SSH tunnel). Say so plainly. */
+    b.textContent=(e instanceof TypeError)
+      ? '⚠ No connection to the panel server — data is not loading. Check the SSH tunnel and reload the page.'
+      : '⚠ Failed to load metrics: '+e.message; } finally{ btn.classList.remove('busy'); btn.textContent='↻ Refresh'; } }
+
+// ── Analytics ──
+function renderMedia(m){ if(!m){return;} const tot=m.posts_total||1;
+  const seg=[['mtext','text',m.text_only],['mphoto','photo',m.by_type.photo],['mvideo','video',m.by_type.video],['maudio','audio',m.by_type.audio],['mdoc','document',m.by_type.document]];
+  const bar=$('an-media'); bar.innerHTML=''; for(const [c,,v] of seg){ if(v>0){ const i=document.createElement('i'); i.className=c; i.style.width=(v/tot*100)+'%'; i.title=v; bar.appendChild(i);} }
+  const leg=$('an-media-leg'); leg.innerHTML=''; const col={mtext:'var(--line2)',mphoto:'var(--cyan)',mvideo:'var(--green)',maudio:'var(--amber)',mdoc:'#9a6cd6'};
+  for(const [c,name,v] of seg){ const d=document.createElement('div'); d.innerHTML=`<span class="dot" style="border-radius:2px;width:8px;height:8px;background:${col[c]}"></span>${name} <b>${fmt(v)}</b>`; leg.appendChild(d); }
+  const d=document.createElement('div'); d.style.marginLeft='auto'; d.style.color='var(--dim)'; d.innerHTML=`posts total <b style="color:var(--muted)">${fmt(m.posts_total)}</b> · with media <b style="color:var(--muted)">${fmt(m.with_media)}</b>`; leg.appendChild(d); }
+function renderCatTable(cats){ const tb=$('an-cattbody'); if(!cats||!cats.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:14px">no data</td></tr>';return;} tb.innerHTML='';
+  for(const c of cats.slice(0,24)){ const tr=document.createElement('tr'); if(c.lagging) tr.className='lag'; const cov=c.coverage_pct; const lo=cov<25;
+    tr.innerHTML=`<td>${escapeHtml(c.category)}</td><td>${fmt(c.resolved)}<span style="color:var(--dim)">/${fmt(c.total)}</span></td><td>${fmt(c.posts)}</td><td><span class="mini"><i class="${lo?'lo':''}" style="width:${Math.min(100,cov)}%"></i></span>${cov}%</td><td>${c.restricted?fmt(c.restricted):'<span style="color:var(--dim)">0</span>'}</td><td>${c.pending?fmt(c.pending):'<span style="color:var(--dim)">0</span>'}</td>`; tb.appendChild(tr); } }
+function renderForecast(fc){ const el=$('an-forecast'); if(!fc){el.textContent='—';return;}
+  if(!fc.ready){ el.innerHTML=`<span class="muted">${escapeHtml(fc.note||'—')}</span><br><span class="muted">still to ingest: <b style="color:var(--txt)">${fmt(fc.pending_total)}</b> channels</span>`; return; }
+  const eta=fc.eta_days; const etatxt=eta==null?'—':(eta<1?'<1 day':eta+' d');
+  el.innerHTML=`<span class="big">${etatxt}</span> until the bulk is ingested<br><span class="muted">~${fmt(fc.done_per_day)} channels/day · remaining <b style="color:var(--txt)">${fmt(fc.pending_total)}</b> · window ${fc.window_days}d</span>`; }
+function drawEmptyRatio(ed){ const h=$('an-emptych'); if(!ed||ed.length<2){ h.innerHTML='<div class="ch-none">accumulating / not enough data</div>'; $('an-emptyv').textContent=''; $('an-emptyx').innerHTML=''; return; }
+  const data=ed.map(x=>({t:x.t, r: x.c? Math.round(x.e/x.c*100):0})); h.innerHTML=svgLine(data,'r','var(--amber)'); xlabels('an-emptyx',data); const last=data[data.length-1]; $('an-emptyv').innerHTML='<b style="color:var(--amber)">'+last.r+'%</b> zero-result (latest)'; }
+function drawQueueHistory(qh){ const h=$('an-qhch'); const data=(qh||[]).filter(x=>x.done_depth!=null).map(x=>({t:x.ts,done_depth:x.done_depth}));
+  if(data.length<2){ h.innerHTML='<div class="ch-none">accumulating… (snapshots every 5 min)</div>'; $('an-qhv').textContent=''; $('an-qhx').innerHTML=''; return; } h.innerHTML=svgLine(data,'done_depth','var(--green)'); xlabels('an-qhx',data); $('an-qhv').innerHTML='<b>'+fmt(data[data.length-1].done_depth)+'</b> done'; }
+function renderAnalytics(a){ renderMedia(a.media); renderCatTable(a.categories); drawEmptyRatio(a.demand.empty_daily);
+  renderList('an-top',(a.demand.top||[]).map(x=>({query:(x.ever?'':'∅ ')+x.query, count:x.count}))); renderList('an-topempty',a.demand.top_empty);
+  drawQueueHistory(a.queue_history); renderForecast(a.forecast); }
+async function loadAnalytics(){ try{ const r=await fetch('/api/analytics',{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'analytics error'); renderAnalytics(j.data); }catch(e){ /* analytics is not critical for the header */ } }
+
+// ── Tabs ──
+const TABS=['overview','content','demand','editor','feedback','limits']; const TAGS={overview:'overview',content:'content',demand:'demand',editor:'editor',feedback:'feedback',limits:'limits'};
+function showTab(t){ if(!TABS.includes(t)) t='overview';
+  for(const x of TABS){ const el=$('tab-'+x); if(el) el.classList.toggle('active', x===t); }
+  document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('active', n.dataset.tab===t));
+  const tt=$('tabtag'); if(tt) tt.textContent=TAGS[t]||t; try{ localStorage.setItem('teleseek_tab',t); }catch(e){}
+  if(t==='editor') editorInit(); if(t==='feedback') fbInit(); if(t==='limits') limInit(); }
+document.querySelectorAll('.navitem').forEach(n=>n.addEventListener('click',()=>showTab(n.dataset.tab)));
+let _init='overview'; try{ const s=localStorage.getItem('teleseek_tab'); if(TABS.includes(s)) _init=s; }catch(e){} showTab(_init);
+
+$('refreshBtn').addEventListener('click',()=>{load();loadAnalytics();});
+load(); setInterval(load,30000); $('autoBadge').classList.add('live');
+loadAnalytics(); setInterval(loadAnalytics,120000);
+
+// ── Channel labelling editor ──
+const ED={page:0, pages:1, editable:false, cats:[], inited:false};
+function editorInit(){ if(ED.inited) return; ED.inited=true; editorLoadCats(); editorSearch(); editorLog(); }
+async function editorLoadCats(){ try{ const r=await fetch('/api/editor/categories',{cache:'no-store'}); const j=await r.json();
+  if(j.ok){ ED.cats=j.data||[]; const sel=$('ed-cat'); sel.innerHTML='<option value="">all categories</option>'+ED.cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join(''); } }catch(e){} }
+function edStatus(m){ const el=$('ed-status'); if(el) el.textContent=m||''; }
+async function editorSearch(){ const q=$('ed-q').value.trim(); const cat=$('ed-cat').value; const adult=$('ed-adult').checked?1:0; const has=$('ed-posts').value;
+  edStatus('loading…');
+  try{ const u=`/api/editor/channels?q=${encodeURIComponent(q)}&category=${encodeURIComponent(cat)}&adult=${adult}&has=${encodeURIComponent(has)}&page=${ED.page}&page_size=30`;
+    const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'err');
+    ED.editable=j.editable; ED.pages=j.data.pages||1; renderEditor(j.data); edStatus(ED.editable?'':'view-only mode (editor role is not configured)'); }
+  catch(e){ $('ed-list').innerHTML=`<div class="ed-none">error: ${escapeHtml(String(e.message||e))}</div>`; edStatus(''); } }
+function renderEditor(d){ const box=$('ed-list');
+  if(!d.items||!d.items.length){ box.innerHTML='<div class="ed-none">nothing matches the filter</div>'; $('ed-page').textContent='0 / 0'; updPager(); return; }
+  box.innerHTML='';
+  for(const c of d.items){ const isA=c.is_adult===true; const row=document.createElement('div'); row.className='ed-row'+(isA?' adult':'');
+    const opts=['<option value="">— category —</option>'].concat(ED.cats.map(x=>`<option value="${escapeHtml(x)}"${x===c.category?' selected':''}>${escapeHtml(x)}</option>`)).join('');
+    const dis=ED.editable?'':'disabled';
+    const adultTag=c.is_adult===true?'<span class="ed-tag on">18+ TRUE</span>':c.is_adult===false?'<span class="ed-tag off">18+ FALSE</span>':'<span class="ed-tag">18+ —</span>';
+    const uname=c.username?`<a class="ed-tme" href="https://t.me/${encodeURIComponent(c.username)}" target="_blank" rel="noopener noreferrer">@${escapeHtml(c.username)}</a>`:'<span class="un">— no username</span>';
+    const pc=c.posts_count||0; const postsTag=`<span class="ed-pc ${pc>0?'has':'no'}">${fmt(pc)} posts</span>`;
+    const closed=(c.parse_status==='restricted_skip')?'<span class="ed-pc closed">restricted</span>':'';
+    row.innerHTML=`<div class="nm"><b>${escapeHtml(c.title||'(untitled)')}</b> ${uname}
+        <span class="me">id ${c.id} · ${fmt(c.members_count)} members · ${postsTag} ${closed} · cat: ${escapeHtml(c.category||'—')}</span></div>
+      <div class="fld">${adultTag}<button class="ed-act" ${dis} data-act="adult" data-id="${c.id}" data-cur="${c.is_adult}">${isA?'clear 18+':'flag 18+'}</button></div>
+      <div class="fld"><select class="ed-sel" ${dis} data-id="${c.id}" data-cur="${escapeHtml(c.category||'')}">${opts}</select>
+        <button class="ed-act" ${dis} data-act="cat" data-id="${c.id}">change cat.</button></div>`;
+    box.appendChild(row); }
+  $('ed-page').textContent=`page ${d.page+1} / ${d.pages} · total ${fmt(d.total)}`; updPager();
+  box.querySelectorAll('[data-act="adult"]').forEach(b=>b.addEventListener('click',()=>edToggleAdult(b)));
+  box.querySelectorAll('[data-act="cat"]').forEach(b=>b.addEventListener('click',()=>edChangeCat(b)));
+}
+function updPager(){ $('ed-prev').disabled=ED.page<=0; $('ed-next').disabled=ED.page>=ED.pages-1; }
+async function edApply(id, field, value, human){ if(!confirm(human)) return false;
+  try{ const r=await fetch('/api/editor/channel/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({field,value})});
+    const j=await r.json(); if(!j.ok){ alert('Not applied: '+(j.error||'error')); return false; }
+    edStatus(`✓ ${field}: ${j.data.old} → ${j.data.new}`); editorSearch(); editorLog(); return true; }
+  catch(e){ alert('Error: '+(e.message||e)); return false; } }
+function edToggleAdult(b){ const id=b.dataset.id; const cur=b.dataset.cur==='true'; const nv=!cur;
+  edApply(id,'is_adult',nv, `Channel id=${id}: set the 18+ flag to ${nv?'TRUE (hidden by safe search)':'FALSE (visible to everyone)'}?`); }
+function edChangeCat(b){ const id=b.dataset.id; const sel=b.parentElement.querySelector('select.ed-sel'); const nv=sel.value; const cur=sel.dataset.cur||'';
+  if(!nv){ alert('Choose a category'); return; } if(nv===cur){ edStatus('category unchanged'); return; }
+  edApply(id,'category',nv, `Channel id=${id}: change category "${cur||'—'}" → "${nv}"?`); }
+async function editorLog(){ try{ const r=await fetch('/api/editor/log?limit=20',{cache:'no-store'}); const j=await r.json(); const box=$('ed-log');
+  if(!j.ok||!j.data||!j.data.length){ box.innerHTML='<div class="ed-none">no edits yet</div>'; return; }
+  box.innerHTML=j.data.map(e=>`<div class="lg"><span class="t">${escapeHtml(String(e.created_at||'').replace('T',' ').slice(5,19))}</span><span class="ch">${e.username?('@'+escapeHtml(e.username)):('id'+e.channel_id)}</span><span>${escapeHtml(e.field)}: ${escapeHtml(String(e.old_value))} → <b>${escapeHtml(String(e.new_value))}</b></span></div>`).join(''); }catch(e){} }
+$('ed-find').addEventListener('click',()=>{ED.page=0; editorSearch();});
+$('ed-q').addEventListener('keydown',e=>{ if(e.key==='Enter'){ED.page=0; editorSearch();} });
+$('ed-cat').addEventListener('change',()=>{ED.page=0; editorSearch();});
+$('ed-posts').addEventListener('change',()=>{ED.page=0; editorSearch();});
+$('ed-adult').addEventListener('change',()=>{ED.page=0; editorSearch();});
+$('ed-prev').addEventListener('click',()=>{ if(ED.page>0){ED.page--; editorSearch();} });
+$('ed-next').addEventListener('click',()=>{ if(ED.page<ED.pages-1){ED.page++; editorSearch();} });
+
+// ── Feedback: paginated feed, favourites, deletion ──
+const FB={page:0, pages:1, editable:false, inited:false};
+function fbInit(){ if(FB.inited) return; FB.inited=true; fbLoad(); }
+function fbStatus(m){ const el=$('fb-status'); if(el) el.textContent=m||''; }
+function fbWhen(iso){ if(!iso) return '—'; const d=new Date(iso);
+  return d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+async function fbLoad(){ const fav=$('fb-fav').checked?1:0; fbStatus('loading…');
+  try{ const r=await fetch(`/api/feedback?favorites=${fav}&page=${FB.page}&page_size=30`,{cache:'no-store'});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'err');
+    FB.editable=j.editable; FB.pages=j.data.pages||1; renderFb(j.data);
+    fbStatus(FB.editable?'':'view-only mode (editor role is not configured)'); }
+  catch(e){ $('fb-list').innerHTML=`<div class="ed-none">error: ${escapeHtml(String(e.message||e))}</div>`; fbStatus(''); } }
+function renderFb(d){ const box=$('fb-list');
+  if(!d.items||!d.items.length){ box.innerHTML='<div class="ed-none">'+($('fb-fav').checked?'no favourite messages':'no messages yet')+'</div>'; $('fb-page').textContent='0 / 0'; fbPager(); return; }
+  box.innerHTML='';
+  for(const f of d.items){ const row=document.createElement('div'); row.className='ed-row fb-row'+(f.is_favorite?' fav':'');
+    const dis=FB.editable?'':'disabled';
+    const langTag=f.language?`<span class="ed-tag">${escapeHtml(f.language)}</span>`:'';
+    const uid=f.user_id!=null?`<span class="uid" title="internal id — never shown to the user">id ${escapeHtml(String(f.user_id))}</span>`:'<span class="uid">id —</span>';
+    row.innerHTML=`<div class="nm">
+        <div class="fb-meta"><span>${escapeHtml(fbWhen(f.created_at))}</span>${uid}${langTag}${f.is_favorite?'<span class="ed-tag" style="color:var(--amber)">★ favourite</span>':''}</div>
+        <div class="fb-txt">${escapeHtml(f.text)}</div></div>
+      <div class="fld">
+        <button class="fb-star${f.is_favorite?' on':''}" ${dis} title="${f.is_favorite?'remove from favourites':'add to favourites'}" data-id="${f.id}" data-cur="${f.is_favorite}">${f.is_favorite?'★':'☆'}</button>
+        <button class="fb-del" ${dis} data-id="${f.id}">delete</button></div>`;
+    box.appendChild(row); }
+  $('fb-page').textContent=`page ${d.page+1} / ${d.pages} · total ${fmt(d.total)}`; fbPager();
+  box.querySelectorAll('.fb-star').forEach(b=>b.addEventListener('click',()=>fbFav(b)));
+  box.querySelectorAll('.fb-del').forEach(b=>b.addEventListener('click',()=>fbDel(b)));
+}
+function fbPager(){ $('fb-prev').disabled=FB.page<=0; $('fb-next').disabled=FB.page>=FB.pages-1; }
+async function fbFav(b){ const id=b.dataset.id; const nv=b.dataset.cur!=='true';
+  try{ const r=await fetch('/api/feedback/'+id+'/favorite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:nv})});
+    const j=await r.json(); if(!j.ok){ alert('Not applied: '+(j.error||'error')); return; }
+    fbStatus(nv?'✓ added to favourites':'✓ removed from favourites'); fbLoad(); }
+  catch(e){ alert('Error: '+(e.message||e)); } }
+async function fbDel(b){ const id=b.dataset.id;
+  if(!confirm('Delete message id='+id+' permanently?')) return;
+  try{ const r=await fetch('/api/feedback/'+id+'/delete',{method:'POST'});
+    const j=await r.json(); if(!j.ok){ alert('Not deleted: '+(j.error||'error')); return; }
+    fbStatus('✓ message deleted'); fbLoad(); }
+  catch(e){ alert('Error: '+(e.message||e)); } }
+$('fb-fav').addEventListener('change',()=>{FB.page=0; fbLoad();});
+$('fb-reload').addEventListener('click',()=>fbLoad());
+$('fb-prev').addEventListener('click',()=>{ if(FB.page>0){FB.page--; fbLoad();} });
+$('fb-next').addEventListener('click',()=>{ if(FB.page<FB.pages-1){FB.page++; fbLoad();} });
+if(_init==='editor') editorInit();
+
+// ── "Limits & access" tab ────────────────────────────────────────────────────
+// Edits go through the editor role on the backend; this is input and display only.
+// Bounds are duplicated in input min/max FOR CONVENIENCE — the authoritative check
+// is on the server (panel/limits.py), browser validation is easy to bypass.
+const LIM={loaded:false};
+function limMsg(t,err){ const s=$('lim-status'); if(!s)return; s.textContent=t||''; s.style.color=err?'var(--red)':''; }
+async function limLoadState(){
+  try{ const r=await fetch('/api/limits',{cache:'no-store'}); const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'err');
+    const s=j.data.settings||{};
+    $('lim-enabled').checked = (s.limits_enabled||{}).value==='true';
+    $('lim-daily').value = (s.free_daily_searches||{}).value||'';
+    $('lim-pages').value = (s.free_max_pages||{}).value||'';
+    const b=j.data.bounds||{};
+    if(b.free_daily_searches){ $('lim-daily').min=b.free_daily_searches.min; $('lim-daily').max=b.free_daily_searches.max; }
+    if(b.free_max_pages){ $('lim-pages').min=b.free_max_pages.min; $('lim-pages').max=b.free_max_pages.max; }
+    const p=j.data.premium||{};
+    $('lim-prem-active').textContent=fmt(p.active||0); unskel($('lim-prem-active'));
+    $('lim-prem-expired').textContent=fmt(p.expired||0); unskel($('lim-prem-expired'));
+    $('lim-prem-total').textContent=fmt(p.total||0); unskel($('lim-prem-total'));
+    $('lim-enabled-hint').textContent = $('lim-enabled').checked
+      ? '— ENABLED: the bot enforces limits' : '— disabled: the product runs without limits';
+    if(!j.editable) limMsg('edits are disabled (no editor role)', true);
+  }catch(e){ limMsg('failed to load: '+e.message, true); }
+}
+async function limSaveSetting(key,value){
+  try{ const r=await fetch('/api/limits/setting',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({key,value})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'err');
+    limMsg(j.data.changed ? (key+': '+j.data.old+' → '+j.data.new) : (key+': unchanged'));
+    return true;
+  }catch(e){ limMsg(e.message, true); return false; }
+}
+async function limSaveAll(){
+  limMsg('saving…');
+  let ok=true;
+  ok = await limSaveSetting('free_daily_searches', $('lim-daily').value) && ok;
+  ok = await limSaveSetting('free_max_pages', $('lim-pages').value) && ok;
+  ok = await limSaveSetting('limits_enabled', $('lim-enabled').checked) && ok;
+  await limLoadState(); await limLoadLog();
+  if(ok) limMsg('saved · the bot picks it up within 60 s');
+}
+async function limFindUser(){
+  const uid=$('lim-uid').value; const box=$('lim-user');
+  if(!uid){ box.innerHTML='<div class="ed-none">— enter an id</div>'; return; }
+  box.innerHTML='<div class="ed-none">searching…</div>';
+  try{ const r=await fetch('/api/limits/user?uid='+encodeURIComponent(uid),{cache:'no-store'});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'err');
+    const d=j.data; if(!d.found){ box.innerHTML='<div class="ed-none">user not found</div>'; return; }
+    const u=d.user||{}; const s=d.subscription;
+    box.innerHTML='<div class="ed-row"><div><b>id '+d.telegram_user_id+'</b> '+(u.username?('@'+u.username):'')
+      +' <span class="hint">searches: '+(u.searches||0)+' · requests: '+(u.requests||0)+' · language: '+(u.language||'—')+'</span></div>'
+      +'<div>'+(d.premium_active?'<b style="color:var(--green)">PREMIUM active</b>':'<span class="hint">no premium</span>')
+      +(s?(' <span class="hint">· '+s.source+' · '+(s.expires_at?('until '+s.expires_at.slice(0,16).replace("T"," ")):'no expiry')+' · '+s.status+'</span>'):'')
+      +'</div></div>';
+  }catch(e){ box.innerHTML='<div class="ed-none">error: '+e.message+'</div>'; }
+}
+async function limPremium(action){
+  const uid=$('lim-uid').value; if(!uid){ limMsg('enter a user id', true); return; }
+  const body={uid:Number(uid), action};
+  if(action==='grant'){ body.forever=$('lim-forever').checked; body.days=Number($('lim-days').value); }
+  try{ const r=await fetch('/api/limits/premium',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'err');
+    limMsg(action==='grant' ? ('premium granted: '+j.data.human) : ('premium revoked (records: '+j.data.revoked+')'));
+    await limFindUser(); await limLoadState(); await limLoadLog();
+  }catch(e){ limMsg(e.message, true); }
+}
+async function limLoadLog(){
+  try{ const r=await fetch('/api/limits/log?limit=20',{cache:'no-store'}); const j=await r.json();
+    const box=$('lim-log'); if(!j.ok||!j.data.length){ box.innerHTML='<div class="ed-none">— empty so far</div>'; return; }
+    box.innerHTML=j.data.map(x=>'<div class="ed-logrow"><span class="hint">'+(x.at||'').slice(0,16).replace("T"," ")+'</span> '
+      +x.action+' <b>'+(x.target||'')+'</b>: '+(x.old===null?'—':x.old)+' → <b>'+(x.new===null?'—':x.new)+'</b></div>').join('');
+  }catch(e){}
+}
+async function limLoadStats(){
+  const box=$('lim-stats');
+  try{ const r=await fetch('/api/limits/stats?days=14',{cache:'no-store'}); const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'err');
+    const d=j.data; const tot=(d.reached_end||{}).total||0;
+    if(!d.depth.length && !d.actions.length){ box.innerHTML='<div class="ed-none">telemetry is accumulating — no data yet</div>'; return; }
+    let h='<div class="ed-row"><div><b>Paging depth</b> <span class="hint">(last '+d.days+' days, "next" presses: '+tot+')</span></div></div>';
+    h+='<div class="ed-row"><div>'+(d.depth.length? d.depth.map(x=>'p.'+x.page+': <b>'+x.hits+'</b>').join(' · ') : '<span class="hint">no data</span>')+'</div></div>';
+    h+='<div class="ed-row"><div><b>Filters</b>: '+(d.filters.length? d.filters.map(x=>x.content_type+' <b>'+x.hits+'</b>').join(' · ') : '<span class="hint">no data</span>')+'</div></div>';
+    h+='<div class="ed-row"><div><b>Actions</b>: '+(d.actions.length? d.actions.map(x=>x.action+' <b>'+x.hits+'</b> ('+x.users+' users)').join(' · ') : '<span class="hint">no data</span>')+'</div></div>';
+    const re=d.reached_end||{}; if(re.total){ h+='<div class="ed-row"><div>Reached the end of results: <b>'+re.yes+'</b> of '+re.total+'</div></div>'; }
+    h+='<div class="ed-row"><span class="hint">cached data, age '+((d.cache||{}).age_sec||0)+' s</span></div>';
+    box.innerHTML=h;
+    const hits=(d.actions.find(x=>x.action==='limit_hit')||{}).hits||0;
+    $('lim-hits').textContent=fmt(hits); unskel($('lim-hits'));
+  }catch(e){ box.innerHTML='<div class="ed-none">error: '+e.message+'</div>'; }
+}
+function limInit(){ if(LIM.loaded) { limLoadState(); return; } LIM.loaded=true;
+  limLoadState(); limLoadLog(); limLoadStats();
+  $('lim-save').addEventListener('click', limSaveAll);
+  $('lim-find').addEventListener('click', limFindUser);
+  $('lim-grant').addEventListener('click', ()=>limPremium('grant'));
+  $('lim-revoke').addEventListener('click', ()=>limPremium('revoke'));
+  $('lim-forever').addEventListener('change', ()=>{ $('lim-days').disabled=$('lim-forever').checked; });
+}
+if(_init==='limits') limInit();
+</script>
+</body>
+</html>
