@@ -68,8 +68,8 @@ flowchart TB
 
 ## Data model
 
-The main tables and their relations. `search_vector` columns are maintained by
-triggers; `keywords_vector` is a generated column.
+The content tables and their relations. `search_vector` columns are maintained
+by triggers; `keywords_vector` is a generated column.
 
 ```mermaid
 erDiagram
@@ -121,46 +121,18 @@ erDiagram
         bigint assigned_account
         int priority
     }
-    search_log {
-        int id PK
-        bigint telegram_user_id
-        varchar query
-        int results_count
-        boolean has_results
-        boolean adult_only
-        timestamptz created_at
-    }
-    user_stats {
-        int id PK
-        bigint telegram_user_id UK
-        int requests_count
-        varchar language
-        timestamptz last_seen
-    }
-    search_session {
-        bigint id PK
-        bigint telegram_user_id
-        bigint chat_id
-        bigint message_id
-    }
-    feedback {
-        int id PK
-        bigint telegram_user_id
-        text text
-        boolean is_favorite
-    }
-    user_subscription {
-        bigint id PK
-        bigint telegram_user_id
-        varchar tier
-        varchar status
-        timestamptz expires_at
-    }
-    app_settings {
-        varchar key PK
-        text value
-    }
 ```
+
+User-facing tables (no foreign keys; linked by `telegram_user_id`):
+
+| Table | Key columns | Purpose |
+|---|---|---|
+| `search_log` | `telegram_user_id`, `query`, `results_count`, `has_results`, `adult_only`, `created_at` | demand analytics, zero-result queries |
+| `user_stats` | `telegram_user_id` (unique), `requests_count`, `language`, `last_seen` | audience, interface language |
+| `search_session` | `telegram_user_id`, `chat_id`, `message_id` (unique per chat) | the user's active result message |
+| `feedback` | `telegram_user_id`, `text`, `is_favorite` | feedback sent from the bot |
+| `user_subscription` | `telegram_user_id`, `tier`, `status`, `expires_at` | manual premium access |
+| `app_settings` | `key` (PK), `value` | limits configuration read by the bot |
 
 Other tables: `channel_access` (per-account channel handle cache used by the
 pipeline), `channel_edit_log` and `admin_action_log` (audit logs of panel edits),
